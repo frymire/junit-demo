@@ -36,8 +36,8 @@ public class HamcrestTests {
     assertThat("Hello", is(anyOf(
             nullValue(),
             instanceOf(String.class),
-            equalTo("Goodbye"
-    ))));
+            equalTo("Goodbye")
+    )));
   }
 
   @Test

@@ -23,7 +23,7 @@ public class TestExceptions {
     assertTrue(true);
   }
 
-  // This fails because an exception other than the expected one was thrown.
+  // This results in an unexpected exception, not an assert failure, since the expected exception wasn't thrown.
   @Test(expected = IllegalArgumentException.class)
   public void throwsDifferentExceptionThanExpected() {
     System.out.println(1 / 0);

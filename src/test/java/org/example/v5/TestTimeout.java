@@ -16,7 +16,7 @@ public class TestTimeout {
     System.out.println("Starting testLongMethod()...");
 
     // Counterintuitively, if it *doesn't* timeout, this will pass.
-    // This version complete the code block, even after the timeout is reached.
+    // This version completes the code block, even after the timeout is reached.
     assertTimeout(Duration.ofMillis(200), () -> {
       try {
         Thread.sleep(500);
@@ -27,9 +27,9 @@ public class TestTimeout {
   }
 
   @Test
-  public void testLongMethodPremptively() { // fails
+  public void testLongMethodPreemptively() { // fails
 
-    System.out.println("Starting testLongMethodPremptively()...");
+    System.out.println("Starting testLongMethodPreemptively()...");
 
     // This version will terminate immediately when the timeout is reached.
     assertTimeoutPreemptively(Duration.ofMillis(200), () -> {
