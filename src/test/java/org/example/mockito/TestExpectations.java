@@ -18,7 +18,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class MockitoExpectationsTest {
+class TestExpectations {
 
   // Mock fields declared at the class level can be reused in any test.
   @Mock Adder adder1;
@@ -91,7 +91,7 @@ class MockitoExpectationsTest {
     // MockedConstruction intercepts constructor calls to set expectations on all future instances of a mocked field
     // within the try-with-resources scope.
     try (@SuppressWarnings("unused") MockedConstruction<Adder> mocked =
-             mockConstruction(Adder.class, MockitoExpectationsTest::initializeAdderMock)) {
+             mockConstruction(Adder.class, TestExpectations::initializeAdderMock)) {
 
       Adder adder1 = new Adder();
       assertEquals(5, adder1.add(2, 2));
@@ -113,7 +113,7 @@ class MockitoExpectationsTest {
   public void testMockedConstructionWithArguments() {
     // Use MockedConstruction to set instance-specific expectations.
     try (@SuppressWarnings("unused") MockedConstruction<Adder> mocked =
-             mockConstruction(Adder.class, MockitoExpectationsTest::initializeAdderMockWithArguments)) {
+             mockConstruction(Adder.class, TestExpectations::initializeAdderMockWithArguments)) {
       assertEquals(5, new Adder("Type A").add(2, 2));
       assertEquals(6, new Adder("Type B").add(2, 2));
       assertEquals(5, new Adder("Type A").add(2, 2));

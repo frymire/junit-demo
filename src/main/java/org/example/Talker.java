@@ -1,8 +1,6 @@
-// UNCLASSIFIED
-
 package org.example;
 
-// This is used in the JMockit demos.
+// This is used in the mocking demos.
 public class Talker {
-  public String sayHi() { return "The real talker says hi."; }    
+  public String sayHi() { return "The real talker says hi."; }
 }
