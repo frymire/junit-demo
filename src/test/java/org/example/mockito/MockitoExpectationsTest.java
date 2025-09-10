@@ -20,12 +20,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class MockitoExpectationsTest {
 
-  // Define some dependencies.
-
-  public static class Talker {
-    public String sayHi() { return "The real talker says hi."; }
-  }
-
   // Mock fields declared at the class level can be reused in any test.
   @Mock Adder adder1;
   @Mock Adder adder2;
@@ -67,7 +61,6 @@ class MockitoExpectationsTest {
     // No invocation of defined expectations here, JMockit will throw an UnnecessaryStubbingException.
   }
 
-
   @Test
   public void testThrownException() {
 
@@ -76,26 +69,6 @@ class MockitoExpectationsTest {
 
     // This will pass, because the mock throws the exception.
     assertThrows(IllegalArgumentException.class, () -> adder1.add(1, -1));
-  }
-
-  // JMockit note: @Mocked affected all future Adder instances.
-  // Mockito does NOT auto-mock new instances; only your @Mock fields are mocks.
-  Talker realTalker = new Talker();
-  @Mock Talker fakeTalker;
-
-
-  @Test
-  public void testWithInjectedMock() {
-
-    // Mock some behavior if someone calls sayHi() on the injectedTalker instance.
-    when(fakeTalker.sayHi()).thenReturn("The mocked talker says hi.");
-
-    assertEquals("The mocked talker says hi.", fakeTalker.sayHi());
-
-    // If you used @Mocked instead of @Injected for the talker test double above,
-    // JMockit would have also mocked the realTalker instance, even though it was
-    // declared without any annotation. As a result, this test would have failed.
-    assertEquals("The real talker says hi.", realTalker.sayHi());
   }
 
   // You can write mocked instances directly in test parameters to avoid interactions among tests.
@@ -113,54 +86,50 @@ class MockitoExpectationsTest {
   }
 
   @Test
-  public void testFutureInstanceExpectationsWithOneRecorder(@Mock final Adder anyAdderUnused) {
+  public void testMockedConstruction() {
 
-    // To set expectations on all future instances of a mocked field, instantiate a
-    // new instance in the Expectations block to record behavior.
-    // Mockito equivalent: intercept constructor calls via MockedConstruction.
-    try (MockedConstruction<Adder> mc = mockConstruction(
-        Adder.class,
-        (mock, context) -> {
-          when(mock.add(2, 2)).thenReturn(5);
-          when(mock.add(1, 1)).thenReturn(3);
-        })) {
+    // MockedConstruction intercepts constructor calls to set expectations on all future instances of a mocked field
+    // within the try-with-resources scope.
+    try (@SuppressWarnings("unused") MockedConstruction<Adder> mocked =
+             mockConstruction(Adder.class, MockitoExpectationsTest::initializeAdderMock)) {
 
-      // All new instances expect the recorded behavior.
-      Adder testAdder1 = new Adder();
-      assertEquals(3, testAdder1.add(1, 1));
-      assertEquals(5, testAdder1.add(2, 2));
+      Adder adder1 = new Adder();
+      assertEquals(5, adder1.add(2, 2));
+      assertEquals(3, adder1.add(1, 1));
 
-      Adder testAdder2 = new Adder();
-      assertEquals(3, testAdder2.add(1, 1));
-      assertEquals(5, testAdder2.add(2, 2));
+      Adder adder2 = new Adder();
+      assertEquals(3, adder2.add(1, 1));
+      assertEquals(5, adder2.add(2, 2));
     }
   }
 
+  private static void initializeAdderMock(final Adder mock, final MockedConstruction.Context context) {
+    if (!context.arguments().isEmpty()) { throw new IllegalArgumentException("Expected exactly zero ctor args."); }
+    when(mock.add(2, 2)).thenReturn(5);
+    when(mock.add(1, 1)).thenReturn(3);
+  }
+
   @Test
-  public void testFutureInstanceExpectationsWithMultipleRecorders(
-      @Mock final Adder recorderAdderA,
-      @Mock final Adder recorderAdderB) {
+  public void testMockedConstructionWithArguments() {
+    // Use MockedConstruction to set instance-specific expectations.
+    try (@SuppressWarnings("unused") MockedConstruction<Adder> mocked =
+             mockConstruction(Adder.class, MockitoExpectationsTest::initializeAdderMockWithArguments)) {
+      assertEquals(5, new Adder("Type A").add(2, 2));
+      assertEquals(6, new Adder("Type B").add(2, 2));
+      assertEquals(5, new Adder("Type A").add(2, 2));
+    }
+  }
 
-    // To set expectations on two different subsets of future instances of a mocked
-    // field, map separate recorder mock fields to new instances in the expectations
-    // block, and record their behavior separately.
-    // Mockito equivalent: branch on constructor arguments inside MockedConstruction.
-    try (MockedConstruction<Adder> mc = mockConstruction(
-        Adder.class,
-        (mock, context) -> {
-          if (context.arguments().size() == 1 && "Type A".equals(context.arguments().get(0))) {
-            when(mock.add(2, 2)).thenReturn(5);
-          } else if (context.arguments().size() == 1 && "Type B".equals(context.arguments().get(0))) {
-            when(mock.add(2, 2)).thenReturn(6);
-          }
-        })) {
-
-      // Each new type of new instances expects the corresponding recorded behavior.
-      Adder testAdderA = new Adder("Type A");
-      assertEquals(5, testAdderA.add(2, 2));
-
-      Adder testAdderB = new Adder("Type B");
-      assertEquals(6, testAdderB.add(2, 2));
+  private static void initializeAdderMockWithArguments(final Adder mock, final MockedConstruction.Context context) {
+    if (context.arguments().size() != 1) { throw new IllegalArgumentException("Expected exactly one ctor arg"); }
+    final Object argument = context.arguments().get(0);
+    if (!(argument instanceof String type)) {
+      throw new IllegalArgumentException("Expected String ctor arg, got: " + argument);
+    }
+    switch (type) {
+      case "Type A" -> when(mock.add(eq(2), eq(2))).thenReturn(5);
+      case "Type B" -> when(mock.add(eq(2), eq(2))).thenReturn(6);
+      default -> throw new IllegalArgumentException("Unexpected Adder type: " + type);
     }
   }
 
@@ -194,4 +163,5 @@ class MockitoExpectationsTest {
     when(adder.add(anyInt(), anyInt())).thenAnswer(new CustomDelegate());
     assertEquals(2, adder.add(5, 3));
   }
+
 }
