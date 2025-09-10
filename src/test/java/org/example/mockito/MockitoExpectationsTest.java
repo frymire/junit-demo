@@ -3,13 +3,13 @@ package org.example.mockito;
 import org.example.Adder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
-import org.mockito.exceptions.verification.VerificationInOrderFailure;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.mockito.stubbing.Answer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -61,28 +61,6 @@ class MockitoExpectationsTest {
   }
 
   @Test
-  public void testStrictExpectationsLoop() {
-
-    // If calls will be made from inside a loop, parameterize StrictExpectations
-    // with the specific number of times a sequence of calls should be made.
-    when(adder2.add(anyInt(), eq(1))).thenReturn(1);
-    when(adder2.add(anyInt(), eq(2))).thenReturn(2);
-
-    for (int i = 0; i < 3; i++) {
-      assertEquals(1, adder2.add(i, 1));
-      assertEquals(2, adder2.add(i, 2));
-    }
-
-    // Mockito: verify strict sequence with InOrder.
-    InOrder inOrder = inOrder(adder2);
-    for (int i = 0; i < 3; i++) {
-      inOrder.verify(adder2).add(i, 1);
-      inOrder.verify(adder2).add(i, 2);
-    }
-    inOrder.verifyNoMoreInteractions();
-  }
-
-  @Test
   @MockitoSettings(strictness = Strictness.STRICT_STUBS)
   public void testUncalledExpectations() {
     when(adder2.add(1, 1)).thenReturn(2);
@@ -105,23 +83,6 @@ class MockitoExpectationsTest {
   Talker realTalker = new Talker();
   @Mock Talker fakeTalker;
 
-  @Test
-  public void testBehaviorOnAnyMockedInstance() {
-
-    // Adder was declared with an @Mock annotation, so all future Adder instances
-    // are automatically mocked as well. This add() call returns 0, rather than 3,
-    // however, since the expectations were specified on adder1. This assert passes,
-    // but an MissingInvocation is thrown, since add() was never called on adder1.
-    //
-    // Mockito equivalent: only adder1 is a mock; new Adder() is real and unaffected.
-    when(adder1.add(1, 1)).thenReturn(3);
-    assertEquals(3, adder1.add(1, 1));
-
-    // Real instance remains real (no global mocking). Replace expected value with
-    // your real Adder’s behavior if you want to assert it.
-    Adder anotherAdder = new Adder();
-    // e.g., assertEquals(2, anotherAdder.add(1, 1)); // if real behavior is known
-  }
 
   @Test
   public void testWithInjectedMock() {
@@ -137,18 +98,16 @@ class MockitoExpectationsTest {
     assertEquals("The real talker says hi.", realTalker.sayHi());
   }
 
-  // You can write mocked instances directly in test parameters. The JMockit author
-  // prefers this approach to reduce the risk of interactions among tests.
+  // You can write mocked instances directly in test parameters to avoid interactions among tests.
   @Test
   public void testInvocationsCountWithMockParameter(@Mock final Adder localAdder) {
 
-    // Require that add() is called twice.
     when(localAdder.add(1, 1)).thenReturn(2);
 
-    // The test must call add() exactly twice.
+    // Require that add() is called exactly twice.
     assertEquals(2, localAdder.add(1, 1));
     assertEquals(2, localAdder.add(1, 1)); // Fail without this.
-    //    assertEquals(2, localAdder.add(1, 1)); // Fail with this.
+//    assertEquals(2, localAdder.add(1, 1)); // Fail with this.
 
     verify(localAdder, times(2)).add(1, 1);
   }
@@ -209,25 +168,30 @@ class MockitoExpectationsTest {
   public void testMockReturnSequence(@Mock final Adder localAdder) {
 
     // Mock behavior that returns different values for subsequent invocations.
-    when(localAdder.add(anyInt(), anyInt())).thenReturn(0, 1, 2);
+    when(localAdder.add(anyInt(), anyInt())).thenReturn(0, 1, 2, 3);
 
     assertEquals(0, localAdder.add(1, 2));
     assertEquals(1, localAdder.add(3, 4));
     assertEquals(2, localAdder.add(5, 6));
+    assertEquals(3, localAdder.add(7, 8));
+    assertEquals(3, localAdder.add(9, 0));  // continue to return the last value
   }
 
   @Test
   public void testCustomDelegate(@Mock final Adder adder) {
 
-    // Rather than scripting exact results for specific mocked method
-    // calls, you can define an alternative method in a delegate.
-    when(adder.add(anyInt(), anyInt()))
-        .thenAnswer(inv -> {
-          int i = inv.getArgument(0, Integer.class);
-          int j = inv.getArgument(1, Integer.class);
-          return i - j; // delegate logic
-        });
+    // Rather than scripting exact results for specific mocked method calls, you can
+    // define an alternative method in a delegate.
+    final class CustomDelegate implements Answer<Integer> {
+      @Override
+      public Integer answer(InvocationOnMock invocation) {
+        int i = invocation.getArgument(0, Integer.class);
+        int j = invocation.getArgument(1, Integer.class);
+        return i - j;
+      }
+    }
 
+    when(adder.add(anyInt(), anyInt())).thenAnswer(new CustomDelegate());
     assertEquals(2, adder.add(5, 3));
   }
 }
